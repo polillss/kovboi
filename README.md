@@ -1,37 +1,73 @@
-#define BUZZER_PIN   12  // пин с пищалкой
-#define PLAYER_COUNT 2   // количество игроков-ковбоев
-// вместо перечисления всех пинов по-одному, мы объявляем пару
-// списков: один с номерами пинов с кнопками, другой — со
-// светодиодами. Списки также называют массивами (англ. array)
-int buttonPins[PLAYER_COUNT] = {3, 13};
-int ledPins[PLAYER_COUNT] = {9, 11};
+int d1 = 1000;   // d1 и d2 - диапазон включения светодиода
+int d2 = 2000;
+int d3 = 3000;   // через сколько сек будет засчитана ошибка
+byte tarrgr = 5; // количество попыток
+byte knp = 3;    // количество пар кнопок/светодиодов
  
-void setup()
-{
-  pinMode(BUZZER_PIN, OUTPUT);
-  for (int player = 0; player < PLAYER_COUNT; ++player) {
-    // при помощи квадратных скобок получают значение в массиве
-    // под указанным в них номером. Нумерация начинается с нуля
-    pinMode(ledPins[player], OUTPUT);
-    pinMode(buttonPins[player], INPUT_PULLUP);
-  }
+byte pinD = 4 + knp; 
+byte pinA = 14 + knp;
+byte ext = 9;
+byte hit;
+byte err;
+byte tarrgn;
+boolean finich = true;
+
+unsigned long timing; 
+unsigned long setreakt; 
+unsigned long bestreakt = 99999;
+unsigned long medreakt;
+
+void setup() {
+   Serial.begin(9600);
+   for (byte i = 4; i < pinD; i++) { pinMode(i, OUTPUT); }
+   for (byte i = 14; i < pinA; i++) { pinMode(i, INPUT); }
+   for (byte i = 14; i < pinA; i++) { analogWrite(i, LOW); }
 }
- 
-void loop()
-{
-  // даём сигнал «пли!», выждав случайное время от 2 до 7 сек
-  delay(random(2000, 7000));
-  tone(BUZZER_PIN, 3000, 250); // 3 килогерца, 250 миллисекунд
- 
-  for (int player = 0; ; player = (player+1) % PLAYER_COUNT) {
-    // если игрок номер «player» нажал кнопку...
-    if (!digitalRead(buttonPins[player])) {
-      // ...включаем его светодиод и сигнал победы на 1 сек
-      digitalWrite(ledPins[player], HIGH);
-      tone(BUZZER_PIN, 4000, 1000);
-      delay(1000);
-      digitalWrite(ledPins[player], LOW);
-      break; // Есть победитель! Выходим (англ. break) из цикла
-    }
+
+void loop() {
+   while (tarrgn < tarrgr) {
+    
+      int LED = random(4, 4 + knp);
+      int BTN = LED + 10;
+
+      int DEL = random(d1, d2);
+      delay(DEL);
+      digitalWrite(LED, HIGH);
+      timing = millis();
+
+      ext = 9;
+
+      while (ext < 10 && tarrgn < tarrgr) {
+         if (digitalRead(BTN) == HIGH) {
+            digitalWrite(LED, LOW);
+            setreakt = millis() - timing;
+            delay(300); hit++; tarrgn++; ext = 11;
+         }
+         if (millis() - timing > d3) {
+            digitalWrite(LED, LOW);
+            delay(300);
+            setreakt = 0; err++; tarrgn++; ext = 11;
+         }
+      }
+
+    if (setreakt < bestreakt && setreakt > 100) { bestreakt = setreakt; }
+    medreakt = medreakt + setreakt;
+  }
+
+    if (tarrgn == tarrgr && finich == true) {
+       medreakt = medreakt / hit;
+       if (medreakt > 99998) { medreakt = 0; }
+       if (bestreakt > 99998) { bestreakt = 0; }
+
+       Serial.println();
+       Serial.println("--- End of Round ---");
+       Serial.println();
+       Serial.println("Hits - " + String(hit));
+       Serial.println("Errors - " + String(err));
+       Serial.println("Best reaction - " + String(bestreakt));
+       Serial.println("Medium reaction - " + String(medreakt));
+       Serial.println();
+       Serial.println("Reboot for restart");
+       finich = false;
   }
 }
